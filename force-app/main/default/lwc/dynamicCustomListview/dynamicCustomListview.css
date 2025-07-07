@@ -1,0 +1,16 @@
+.slds-scrollable_x {
+    overflow-x: auto;
+}
+
+.slds-table {
+    font-size: 0.875rem;
+}
+
+.slds-table th,
+.slds-table td {
+    padding: var(--slds-spacing-small, 0.5rem);
+}
+
+.slds-max-medium-table_stacked {
+    min-width: 100%;
+}
