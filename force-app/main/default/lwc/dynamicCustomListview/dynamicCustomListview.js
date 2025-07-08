@@ -249,13 +249,15 @@ export default class RecordListView extends LightningElement {
     }
 
     handleRowClick(event) {
-        const recordId = event.currentTarget.dataset.id;
-        console.log('Record clicked:', recordId);
+    const recordId = event.currentTarget.dataset.id;
+    const objectName = this.config.objectApiName;
 
-        this.dispatchEvent(new CustomEvent('rowclick', {
-            detail: { recordId: recordId, objectApiName: this.config.objectApiName }
-        }));
-    }
+    // Navigate to custom Experience Cloud record page
+    const url = `frmportal/s/recorddetailpage?id=${recordId}`;
+
+    window.open(url, '_self'); // Open in same tab
+}
+
 
     handleRefresh() {
         try {
