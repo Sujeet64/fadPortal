@@ -17,10 +17,8 @@ export default class RecordListView extends LightningElement {
     @track config = {};
     @track listTitle = 'Records';
 
-    // Config name from provided JSON
     configName = 'RecordToDisplay';
 
-    // Store wire results for refresh
     wiredConfigResult;
     wiredRecordsResult;
 
@@ -28,11 +26,11 @@ export default class RecordListView extends LightningElement {
     wiredConfig(result) {
         this.wiredConfigResult = result;
         const { error, data } = result;
-        
+
         if (data) {
             this.config = data;
-            this.listTitle = this.config.recordType ? 
-                `${this.config.recordType} ${this.config.objectApiName}s` : 
+            this.listTitle = this.config.recordType ?
+                `${this.config.recordType} ${this.config.objectApiName}s` :
                 `${this.config.objectApiName}s`;
             this.setupColumns();
             this.error = undefined;
@@ -48,12 +46,11 @@ export default class RecordListView extends LightningElement {
     wiredRecords(result) {
         this.wiredRecordsResult = result;
         const { error, data } = result;
-        
+
         this.isLoading = true;
-        
+
         if (data) {
             try {
-                // Map records to include field-value pairs and a unique key
                 this.records = data.map((record, index) => {
                     const mappedRecord = {
                         Id: record.Id,
@@ -61,8 +58,7 @@ export default class RecordListView extends LightningElement {
                         rowNumber: index + 1,
                         cells: []
                     };
-                    
-                    // Create cells array for template iteration
+
                     if (this.columns && this.columns.length > 0) {
                         this.columns.forEach(column => {
                             const fieldValue = this.getFieldValue(record, column.fieldName);
@@ -74,7 +70,7 @@ export default class RecordListView extends LightningElement {
                             });
                         });
                     }
-                    
+
                     return mappedRecord;
                 });
 
@@ -92,16 +88,14 @@ export default class RecordListView extends LightningElement {
             this.records = [];
             this.filteredRecords = [];
         }
-        
-        this.isLoization = false;
+
+        this.isLoading = false;
     }
 
-    // Setup columns based on config
     setupColumns() {
         if (this.config.fields && this.config.fields.length > 0) {
             this.columns = this.config.fields.map(fieldConfig => {
                 if (typeof fieldConfig === 'string') {
-                    // Simple field name
                     return {
                         label: this.formatLabel(fieldConfig),
                         fieldName: fieldConfig,
@@ -110,7 +104,6 @@ export default class RecordListView extends LightningElement {
                         type: 'text'
                     };
                 } else if (typeof fieldConfig === 'object' && fieldConfig.fieldName) {
-                    // Field configuration object
                     return {
                         label: fieldConfig.label || this.formatLabel(fieldConfig.fieldName),
                         fieldName: fieldConfig.fieldName,
@@ -119,16 +112,14 @@ export default class RecordListView extends LightningElement {
                         type: fieldConfig.type || 'text'
                     };
                 }
-            }).filter(col => col && col.fieldName); // Remove any undefined columns
+            }).filter(col => col && col.fieldName);
         }
     }
 
-    // Get field value from record (handles nested fields)
     getFieldValue(record, fieldName) {
         if (!record || !fieldName) return '';
-        
+
         try {
-            // Handle nested fields like RecordType.Name
             if (fieldName.includes('.')) {
                 const parts = fieldName.split('.');
                 let value = record;
@@ -138,7 +129,7 @@ export default class RecordListView extends LightningElement {
                 }
                 return value != null ? String(value) : '';
             }
-            
+
             return record[fieldName] != null ? String(record[fieldName]) : '';
         } catch (error) {
             console.error('Error getting field value:', error);
@@ -146,10 +137,9 @@ export default class RecordListView extends LightningElement {
         }
     }
 
-    // Format display value based on field type
     formatDisplayValue(value, column) {
         if (!value) return '';
-        
+
         try {
             switch (column.type) {
                 case 'currency':
@@ -171,10 +161,9 @@ export default class RecordListView extends LightningElement {
         }
     }
 
-    // Format field names to human-readable labels
     formatLabel(fieldName) {
         if (!fieldName) return '';
-        
+
         return fieldName
             .replace(/([A-Z])/g, ' $1')
             .replace(/^./, str => str.toUpperCase())
@@ -182,13 +171,11 @@ export default class RecordListView extends LightningElement {
             .replace(/\b\w/g, l => l.toUpperCase());
     }
 
-    // Handle search input
     handleSearch(event) {
         this.searchTerm = event.target.value.toLowerCase();
         this.filterRecords();
     }
 
-    // Filter records based on search term
     filterRecords() {
         if (!this.searchTerm) {
             this.filteredRecords = [...this.records];
@@ -202,10 +189,9 @@ export default class RecordListView extends LightningElement {
         this.totalRecords = this.filteredRecords.length;
     }
 
-    // Handle column sorting
     handleSort(event) {
         const fieldName = event.currentTarget.dataset.field;
-        
+
         if (this.sortField === fieldName) {
             this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
@@ -216,18 +202,16 @@ export default class RecordListView extends LightningElement {
         this.sortRecords();
     }
 
-    // Sort records
     sortRecords() {
         if (!this.sortField) return;
-        
+
         this.filteredRecords.sort((a, b) => {
             const aCell = a.cells.find(cell => cell.fieldName === this.sortField);
             const bCell = b.cells.find(cell => cell.fieldName === this.sortField);
-            
+
             let aVal = aCell ? aCell.value : '';
             let bVal = bCell ? bCell.value : '';
-            
-            // Handle numeric sorting
+
             if (this.isNumericField(this.sortField)) {
                 aVal = parseFloat(aVal) || 0;
                 bVal = parseFloat(bVal) || 0;
@@ -235,14 +219,13 @@ export default class RecordListView extends LightningElement {
                 aVal = aVal.toLowerCase();
                 bVal = bVal.toLowerCase();
             }
-            
+
             if (aVal < bVal) return this.sortDirection === 'asc' ? -1 : 1;
             if (aVal > bVal) return this.sortDirection === 'asc' ? 1 : -1;
             return 0;
         });
     }
 
-    // Apply initial sorting from config
     applySorting() {
         if (this.config.sortBy) {
             const sortParts = this.config.sortBy.split(' ');
@@ -254,46 +237,39 @@ export default class RecordListView extends LightningElement {
         }
     }
 
-    // Check if field should be displayed as link
     isLinkField(fieldName) {
-        return fieldName.toLowerCase().includes('name') || 
+        return fieldName.toLowerCase().includes('name') ||
                fieldName.toLowerCase().includes('email') ||
                fieldName.toLowerCase().includes('url');
     }
 
-    // Check if field is numeric
     isNumericField(fieldName) {
         const column = this.columns.find(col => col.fieldName === fieldName);
         return column && ['currency', 'number', 'percent'].includes(column.type);
     }
 
-    // Handle row click for navigation or logging
     handleRowClick(event) {
         const recordId = event.currentTarget.dataset.id;
         console.log('Record clicked:', recordId);
-        
-        // Dispatch event for navigation
-        this.dispatchEvent(new CustomEvent('rowclick', { 
-            detail: { recordId: recordId, objectApiName: this.config.objectApiName } 
+
+        this.dispatchEvent(new CustomEvent('rowclick', {
+            detail: { recordId: recordId, objectApiName: this.config.objectApiName }
         }));
     }
 
-    // Handle refresh with proper error handling
     handleRefresh() {
         try {
             this.isLoading = true;
-            
-            // Refresh both configs and records
             const refreshPromises = [];
-            
+
             if (this.wiredConfigResult) {
                 refreshPromises.push(refreshApex(this.wiredConfigResult));
             }
-            
+
             if (this.wiredRecordsResult) {
                 refreshPromises.push(refreshApex(this.wiredRecordsResult));
             }
-            
+
             Promise.all(refreshPromises)
                 .then(() => {
                     this.showToast('Success', 'Records refreshed successfully', 'success');
@@ -314,7 +290,6 @@ export default class RecordListView extends LightningElement {
         }
     }
 
-    // Show toast message
     showToast(title, message, variant) {
         const evt = new ShowToastEvent({
             title: title,
@@ -324,7 +299,6 @@ export default class RecordListView extends LightningElement {
         this.dispatchEvent(evt);
     }
 
-    // Formatting methods
     formatCurrency(value) {
         try {
             return new Intl.NumberFormat('en-US', {
@@ -338,7 +312,7 @@ export default class RecordListView extends LightningElement {
 
     formatDate(value) {
         try {
-            return new Date(value).toLocaleDateDate();
+            return new Date(value).toLocaleDateString();
         } catch (error) {
             return value;
         }
@@ -362,7 +336,6 @@ export default class RecordListView extends LightningElement {
 
     formatPhone(value) {
         try {
-            // Basic phone formatting
             const cleaned = value.replace(/\D/g, '');
             if (cleaned.length === 10) {
                 return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
@@ -373,12 +346,10 @@ export default class RecordListView extends LightningElement {
         }
     }
 
-    // Get items display text
     get itemsDisplayText() {
         return `${this.totalRecords} items`;
     }
 
-    // Get sort info text
     get sortInfoText() {
         if (this.sortField) {
             return `Sorted by ${this.formatLabel(this.sortField)}`;
@@ -386,7 +357,6 @@ export default class RecordListView extends LightningElement {
         return this.config.sortBy ? `Sorted by ${this.config.sortBy}` : 'Sorted by Name';
     }
 
-    // Get filter info text
     get filterInfoText() {
         let filterText = `Filtered by All ${this.config.objectApiName}s`;
         if (this.config.recordType) {
@@ -395,7 +365,6 @@ export default class RecordListView extends LightningElement {
         return filterText;
     }
 
-    // Get update info text
     get updateInfoText() {
         return 'Updated a few seconds ago';
     }

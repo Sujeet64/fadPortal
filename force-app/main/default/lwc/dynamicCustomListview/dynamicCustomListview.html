@@ -1,7 +1,7 @@
 <!--
-  @description       : Enhanced Record List View matching Salesforce UI
+  @description       : 
   @author            : ChangeMeIn@UserSettingsUnder.SFDoc
-  @group             :
+  @group             : 
   @last modified on  : 07-08-2025
   @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
 -->
@@ -16,7 +16,7 @@
                     <lightning-icon icon-name="utility:edit" size="x-small" class="title-edit"></lightning-icon>
                 </h1>
             </div>
-            
+
             <!-- Search and Controls -->
             <div class="search-controls">
                 <div class="search-container">
@@ -79,7 +79,6 @@
         <template if:false={isLoading}>
             <div class="table-container">
                 <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
-                    <!-- Table Header -->
                     <thead>
                         <tr class="slds-line-height_reset">
                             <th class="row-number-header" scope="col">
@@ -99,8 +98,6 @@
                             </template>
                         </tr>
                     </thead>
-
-                    <!-- Table Body -->
                     <tbody>
                         <template for:each={filteredRecords} for:item="record">
                             <tr key={record.key} class="data-row" data-id={record.Id} onclick={handleRowClick}>
@@ -127,7 +124,6 @@
                 </table>
             </div>
 
-            <!-- No Records Message -->
             <template if:false={filteredRecords.length}>
                 <div class="no-records-message">
                     <lightning-icon icon-name="utility:info" size="small" class="info-icon"></lightning-icon>
