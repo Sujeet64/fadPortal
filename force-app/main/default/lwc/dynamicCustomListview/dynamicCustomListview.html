@@ -1,52 +1,139 @@
 <!--
-  @description       : 
+  @description       : Enhanced Record List View matching Salesforce UI
   @author            : ChangeMeIn@UserSettingsUnder.SFDoc
-  @group             : 
-  @last modified on  : 07-07-2025
+  @group             :
+  @last modified on  : 07-08-2025
   @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
 -->
 <template>
-    <lightning-card title="Custom Record List View" icon-name="standard:record">
-        <div class="slds-var-p-around_medium">
-            <template if:true={records}>
-                <div class="slds-scrollable_x">
-                    <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-max-medium-table_stacked">
-                        <thead>
-                            <tr class="slds-line-height_reset">
-                                <template for:each={columns} for:item="column">
-                                    <th key={column} scope="col">
-                                        <div class="slds-truncate" title={column}>{column}</div>
-                                    </th>
+    <div class="list-view-container">
+        <!-- Header Section -->
+        <div class="list-header">
+            <div class="list-title-section">
+                <h1 class="list-title">
+                    <span class="title-text">{listTitle}</span>
+                    <lightning-icon icon-name="utility:chevrondown" size="x-small" class="title-dropdown"></lightning-icon>
+                    <lightning-icon icon-name="utility:edit" size="x-small" class="title-edit"></lightning-icon>
+                </h1>
+            </div>
+            
+            <!-- Search and Controls -->
+            <div class="search-controls">
+                <div class="search-container">
+                    <lightning-input 
+                        type="search" 
+                        placeholder="Search this list..." 
+                        value={searchTerm}
+                        onchange={handleSearch}
+                        class="search-input">
+                    </lightning-input>
+                </div>
+                
+                <div class="control-buttons">
+                    <lightning-button-icon 
+                        icon-name="utility:settings" 
+                        alternative-text="Settings" 
+                        title="Settings"
+                        class="control-button">
+                    </lightning-button-icon>
+                    <lightning-button-icon 
+                        icon-name="utility:refresh" 
+                        alternative-text="Refresh" 
+                        title="Refresh"
+                        onclick={handleRefresh}
+                        class="control-button">
+                    </lightning-button-icon>
+                    <lightning-button-icon 
+                        icon-name="utility:filterList" 
+                        alternative-text="Filter" 
+                        title="Filter"
+                        class="control-button">
+                    </lightning-button-icon>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Info Bar -->
+        <div class="status-info">
+            <span class="status-text">
+                {itemsDisplayText} • {sortInfoText} • {filterInfoText} • {updateInfoText}
+            </span>
+        </div>
+
+        <!-- Loading Spinner -->
+        <template if:true={isLoading}>
+            <div class="loading-container">
+                <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <!-- Error Message -->
+        <template if:true={error}>
+            <div class="error-message">
+                <lightning-icon icon-name="utility:error" size="small" class="error-icon"></lightning-icon>
+                <span>{error}</span>
+            </div>
+        </template>
+
+        <!-- Table View -->
+        <template if:false={isLoading}>
+            <div class="table-container">
+                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
+                    <!-- Table Header -->
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th class="row-number-header" scope="col">
+                                <div class="slds-truncate">#</div>
+                            </th>
+                            <template for:each={columns} for:item="column">
+                                <th key={column.fieldName} class="slds-text-title_caps sortable-header" scope="col">
+                                    <div class="header-content" data-field={column.fieldName} onclick={handleSort}>
+                                        <span class="slds-truncate">{column.label}</span>
+                                        <lightning-icon 
+                                            icon-name="utility:arrowdown" 
+                                            size="xx-small" 
+                                            class="sort-icon">
+                                        </lightning-icon>
+                                    </div>
+                                </th>
+                            </template>
+                        </tr>
+                    </thead>
+
+                    <!-- Table Body -->
+                    <tbody>
+                        <template for:each={filteredRecords} for:item="record">
+                            <tr key={record.key} class="data-row" data-id={record.Id} onclick={handleRowClick}>
+                                <td class="row-number-cell">
+                                    <div class="slds-truncate">{record.rowNumber}</div>
+                                </td>
+                                <template for:each={record.cells} for:item="cell">
+                                    <td key={cell.fieldName} class="data-cell">
+                                        <div class="slds-truncate cell-content">
+                                            <template if:true={cell.value}>
+                                                <template if:false={cell.isLink}>
+                                                    {cell.displayValue}
+                                                </template>
+                                                <template if:true={cell.isLink}>
+                                                    <a href="#" class="cell-link">{cell.displayValue}</a>
+                                                </template>
+                                            </template>
+                                        </div>
+                                    </td>
                                 </template>
                             </tr>
-                        </thead>
-                        <tbody>
-                            <template for:each={records} for:item="record">
-                                <tr key={record.id} class="slds-hint-parent">
-                                    <template for:each={record.values} for:item="valueObj">
-                                        <td key={valueObj.field} data-label={valueObj.field}>
-                                            <div class="slds-truncate">
-                                                <template if:true={valueObj.isNameField}>
-                                                    <a href={valueObj.url} target="_blank">{valueObj.value}</a>
-                                                </template>
-                                                <template if:false={valueObj.isNameField}>
-                                                    {valueObj.value}
-                                                </template>
-                                            </div>
-                                        </td>
-                                    </template>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- No Records Message -->
+            <template if:false={filteredRecords.length}>
+                <div class="no-records-message">
+                    <lightning-icon icon-name="utility:info" size="small" class="info-icon"></lightning-icon>
+                    <span>No records to display.</span>
                 </div>
             </template>
-            <template if:true={error}>
-                <div class="slds-text-color_error">{error}</div>
-            </template>
-            <template if:false={records}>
-                <div class="slds-text-align_center">No records found.</div>
-            </template>
-        </div>
-    </lightning-card>
+        </template>
+    </div>
 </template>
