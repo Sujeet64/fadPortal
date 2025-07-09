@@ -10,42 +10,31 @@
         <!-- Header Section -->
         <div class="list-header">
             <div class="list-title-section">
-    <h1 class="list-title">
-        <span class="title-text">{listTitle}</span>
-        <lightning-icon icon-name="utility:edit" size="x-small" class="title-edit"></lightning-icon>
-    </h1>
-</div>
+                <h1 class="list-title">
+                    <span class="title-text">{listTitle}</span>
+                </h1>
+            </div>
 
             <!-- Search and Controls -->
             <div class="search-controls">
                 <div class="search-container">
-                    <lightning-input 
-                        type="search" 
-                        placeholder="Search this list..." 
-                        value={searchTerm}
-                        onchange={handleSearch}
-                        class="search-input">
-                    </lightning-input>
+                    <lightning-input
+    type="search"
+    
+    placeholder="Search this list..."
+    value={searchTerm}
+    onchange={handleSearch}
+    class="search-input">
+</lightning-input>
+
                 </div>
                 
                 <div class="control-buttons">
-                    <lightning-button-icon 
-                        icon-name="utility:settings" 
-                        alternative-text="Settings" 
-                        title="Settings"
-                        class="control-button">
-                    </lightning-button-icon>
                     <lightning-button-icon 
                         icon-name="utility:refresh" 
                         alternative-text="Refresh" 
                         title="Refresh"
                         onclick={handleRefresh}
-                        class="control-button">
-                    </lightning-button-icon>
-                    <lightning-button-icon 
-                        icon-name="utility:filterList" 
-                        alternative-text="Filter" 
-                        title="Filter"
                         class="control-button">
                     </lightning-button-icon>
                 </div>
@@ -80,9 +69,7 @@
                 <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
                     <thead>
                         <tr class="slds-line-height_reset">
-                            <th class="row-number-header" scope="col">
-                                <div class="slds-truncate">#</div>
-                            </th>
+                           
                             <template for:each={columns} for:item="column">
                                 <th key={column.fieldName} class="slds-text-title_caps sortable-header" scope="col">
                                     <div class="header-content" data-field={column.fieldName} onclick={handleSort}>
@@ -100,9 +87,7 @@
                     <tbody>
                         <template for:each={filteredRecords} for:item="record">
                             <tr key={record.key} class="data-row" data-id={record.Id} onclick={handleRowClick}>
-                                <td class="row-number-cell">
-                                    <div class="slds-truncate">{record.rowNumber}</div>
-                                </td>
+                                
                                 <template for:each={record.cells} for:item="cell">
                                     <td key={cell.fieldName} class="data-cell">
                                         <div class="slds-truncate cell-content">
@@ -123,85 +108,86 @@
                 </table>
             </div>
 
-<!-- Mobile Card View -->
-<div class="mobile-card-container">
-    <template for:each={displayedRecords} for:item="record">
-        <div key={record.key} class="mobile-card" data-id={record.Id} onclick={handleRowClick}>
-            <div class="mobile-card-header">
-                <template if:true={record.primaryField}>
-                    <template if:false={record.primaryField.isLink}>
-                        <div class="mobile-card-title">{record.primaryField.displayValue}</div>
-                    </template>
-                    <template if:true={record.primaryField.isLink}>
-                        <a href="#" class="mobile-card-title">{record.primaryField.displayValue}</a>
-                    </template>
-                </template>
-                <template if:false={record.primaryField}>
-                    <div class="mobile-card-title">Record {record.rowNumber}</div>
-                </template>
-            </div>
-            
-            <div class="mobile-card-content">
-                <template for:each={record.visibleFields} for:item="field">
-                    <div key={field.fieldName} class="mobile-field-row">
-                        <span class="mobile-field-label">{field.label}:</span>
-                        <template if:true={field.value}>
-                            <template if:false={field.isLink}>
-                                <span class="mobile-field-value">{field.displayValue}</span>
+            <!-- Mobile Card View -->
+            <div class="mobile-card-container">
+                <template for:each={displayedRecords} for:item="record">
+                    <div key={record.key} class="mobile-card" data-id={record.Id}>
+                        <div class="mobile-card-header">
+                            <template if:true={record.primaryField}>
+                                <template if:false={record.primaryField.isLink}>
+                                    <div class="mobile-card-title">{record.primaryField.displayValue}</div>
+                                </template>
+                                <template if:true={record.primaryField.isLink}>
+                                    <a href="#" class="mobile-card-title">{record.primaryField.displayValue}</a>
+                                </template>
                             </template>
-                            <template if:true={field.isLink}>
-                                <a href="#" class="mobile-field-value is-link">{field.displayValue}</a>
+                            <template if:false={record.primaryField}>
+                                <div class="mobile-card-title">Record {record.rowNumber}</div>
                             </template>
-                        </template>
-                        <template if:false={field.value}>
-                            <span class="mobile-field-value">—</span>
-                        </template>
+                        </div>
+                        
+                        <div class="mobile-card-content">
+                            <template for:each={record.visibleFields} for:item="field">
+                                <div key={field.fieldName} class="mobile-field-row">
+                                    <span class="mobile-field-label">{field.label}:</span>
+                                    <template if:true={field.value}>
+                                        <template if:false={field.isLink}>
+                                            <span class="mobile-field-value">{field.displayValue}</span>
+                                        </template>
+                                        <template if:true={field.isLink}>
+                                            <a href="#" class="mobile-field-value is-link">{field.displayValue}</a>
+                                        </template>
+                                    </template>
+                                    <template if:false={field.value}>
+                                        <span class="mobile-field-value">—</span>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Expanded fields section -->
+                            <template if:true={record.hiddenFields.length}>
+                                <div class="expanded-fields-container">
+                                    <template for:each={record.hiddenFields} for:item="field">
+                                        <div key={field.fieldName} class="mobile-field-row expanded-field"
+                                             data-expanded={record.isExpanded}>
+                                            <span class="mobile-field-label">{field.label}:</span>
+                                            <template if:true={field.value}>
+                                                <template if:false={field.isLink}>
+                                                    <span class="mobile-field-value">{field.displayValue}</span>
+                                                </template>
+                                                <template if:true={field.isLink}>
+                                                    <a href="#" class="mobile-field-value is-link">{field.displayValue}</a>
+                                                </template>
+                                            </template>
+                                            <template if:false={field.value}>
+                                                <span class="mobile-field-value">—</span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <button class="expand-button" data-id={record.Id} onclick={handleCardExpand}>
+                                    <template if:true={record.isExpanded}>
+                                        Show Less
+                                    </template>
+                                    <template if:false={record.isExpanded}>
+                                        Show More
+                                    </template>
+                                </button>
+                            </template>
+
+                        </div>
                     </div>
                 </template>
-                
-                <!-- Expanded fields section -->
-                <template if:true={record.hiddenFields.length}>
-                    <div class="expanded-fields-container">
-                        <template for:each={record.hiddenFields} for:item="field">
-                            <div key={field.fieldName} class="mobile-field-row expanded-field" 
-                                 data-expanded={isCardExpanded}>
-                                <span class="mobile-field-label">{field.label}:</span>
-                                <template if:true={field.value}>
-                                    <template if:false={field.isLink}>
-                                        <span class="mobile-field-value">{field.displayValue}</span>
-                                    </template>
-                                    <template if:true={field.isLink}>
-                                        <a href="#" class="mobile-field-value is-link">{field.displayValue}</a>
-                                    </template>
-                                </template>
-                                <template if:false={field.value}>
-                                    <span class="mobile-field-value">—</span>
-                                </template>
-                            </div>
-                        </template>
+
+                <template if:true={hasMoreRecords}>
+                    <div class="load-more-container">
+                        <button class="load-more-button" onclick={handleLoadMore}>
+                            Load More
+                        </button>
                     </div>
-                    
-                    <button class="expand-button" data-id={record.Id} onclick={handleCardExpand}>
-                        <template if:false={isCardExpanded}>
-                            Show More
-                        </template>
-                        <template if:true={isCardExpanded}>
-                            Show Less
-                        </template>
-                    </button>
                 </template>
             </div>
-        </div>
-    </template>
-    
-    <template if:true={hasMoreRecords}>
-        <div class="load-more-container">
-            <button class="load-more-button" onclick={handleLoadMore}>
-                Load More
-            </button>
-        </div>
-    </template>
-</div>
 
             <template if:false={filteredRecords.length}>
                 <div class="no-records-message">

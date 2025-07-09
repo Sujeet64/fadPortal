@@ -21,7 +21,9 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
     @track currentPage = 0;
     @track displayedRecords = [];
     @track hasMoreRecords = false;
-    @track expandedCards = new Set();
+    @track lastUpdateTime; // Track the last update timestamp
+
+    expandedCardIds = new Set(); // Used for card expand/collapse
 
     configName = 'RecordToDisplay';
 
@@ -79,7 +81,6 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
                     }
 
                     this.setupMobileFields(mappedRecord);
-
                     return mappedRecord;
                 });
 
@@ -87,6 +88,7 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
                 this.totalRecords = this.records.length;
                 this.applySorting();
                 this.updateDisplayedRecords();
+                this.lastUpdateTime = new Date(); // Set the last update time
                 this.error = undefined;
             } catch (e) {
                 this.error = 'Error processing records: ' + e.message;
@@ -194,7 +196,6 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
 
     formatLabel(fieldName) {
         if (!fieldName) return '';
-
         return fieldName
             .replace(/([A-Z])/g, ' $1')
             .replace(/^./, str => str.toUpperCase())
@@ -203,9 +204,18 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
     }
 
     handleSearch(event) {
-        this.searchTerm = event.target.value.toLowerCase();
+    event.preventDefault();
+    event.stopPropagation();
+
+    const newSearchTerm = event.target.value.toLowerCase();
+
+    // Only update if changed to avoid unnecessary re-renders
+    if (this.searchTerm !== newSearchTerm) {
+        this.searchTerm = newSearchTerm;
         this.filterRecords();
     }
+}
+
 
     filterRecords() {
         if (!this.searchTerm) {
@@ -220,18 +230,17 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
         this.totalRecords = this.filteredRecords.length;
         this.currentPage = 0;
         this.updateDisplayedRecords();
+        this.lastUpdateTime = new Date(); // Update time on filter
     }
 
     handleSort(event) {
         const fieldName = event.currentTarget.dataset.field;
-
         if (this.sortField === fieldName) {
             this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
             this.sortField = fieldName;
             this.sortDirection = 'asc';
         }
-
         this.sortRecords();
     }
 
@@ -260,6 +269,7 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
 
         this.currentPage = 0;
         this.updateDisplayedRecords();
+        this.lastUpdateTime = new Date(); // Update time on sort
     }
 
     applySorting() {
@@ -275,8 +285,8 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
 
     isLinkField(fieldName) {
         return fieldName.toLowerCase().includes('name') ||
-               fieldName.toLowerCase().includes('email') ||
-               fieldName.toLowerCase().includes('url');
+            fieldName.toLowerCase().includes('email') ||
+            fieldName.toLowerCase().includes('url');
     }
 
     isNumericField(fieldName) {
@@ -302,7 +312,10 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
         if (this.wiredRecordsResult) refreshPromises.push(refreshApex(this.wiredRecordsResult));
 
         Promise.all(refreshPromises)
-            .then(() => this.showToast('Success', 'Records refreshed successfully', 'success'))
+            .then(() => {
+                this.showToast('Success', 'Records refreshed successfully', 'success');
+                this.lastUpdateTime = new Date(); // Update time on refresh
+            })
             .catch(error => {
                 this.error = 'Error refreshing data: ' + (error.body?.message || error.message);
                 this.showToast('Error', 'Failed to refresh records', 'error');
@@ -375,13 +388,29 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
     }
 
     get updateInfoText() {
-        return 'Updated a few seconds ago';
+        if (!this.lastUpdateTime) return 'Never updated';
+        const now = new Date();
+        const diffMs = now - this.lastUpdateTime;
+        const diffSeconds = Math.floor(diffMs / 1000);
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        const diffHours = Math.floor(diffMinutes / 60);
+
+        if (diffSeconds < 60) {
+            return `Updated ${diffSeconds} second${diffSeconds !== 1 ? 's' : ''} ago`;
+        } else if (diffMinutes < 60) {
+            return `Updated ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+        } else {
+            return `Updated ${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+        }
     }
 
     updateDisplayedRecords() {
         const startIndex = 0;
         const endIndex = (this.currentPage + 1) * this.pageSize;
-        this.displayedRecords = this.filteredRecords.slice(startIndex, endIndex);
+        this.displayedRecords = this.filteredRecords.slice(startIndex, endIndex).map(record => ({
+            ...record,
+            isExpanded: this.expandedCardIds.has(record.Id)
+        }));
         this.hasMoreRecords = this.filteredRecords.length > endIndex;
     }
 
@@ -393,19 +422,11 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
     handleCardExpand(event) {
         event.stopPropagation();
         const recordId = event.currentTarget.dataset.id;
-        if (this.expandedCards.has(recordId)) {
-            this.expandedCards.delete(recordId);
+        if (this.expandedCardIds.has(recordId)) {
+            this.expandedCardIds.delete(recordId);
         } else {
-            this.expandedCards.add(recordId);
+            this.expandedCardIds.add(recordId);
         }
-        this.expandedCards = new Set(this.expandedCards);
-    }
-
-    get isCardExpanded() {
-        return (recordId) => this.expandedCards.has(recordId);
-    }
-
-    isCardExpanded(recordId) {
-        return this.expandedCards.has(recordId);
+        this.updateDisplayedRecords();
     }
 }
