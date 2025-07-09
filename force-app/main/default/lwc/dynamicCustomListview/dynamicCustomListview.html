@@ -19,14 +19,12 @@
             <div class="search-controls">
                 <div class="search-container">
                     <lightning-input
-    type="search"
-    
-    placeholder="Search this list..."
-    value={searchTerm}
-    onchange={handleSearch}
-    class="search-input">
-</lightning-input>
-
+                        type="search"
+                        placeholder="Search this list..."
+                        value={searchTerm}
+                        onchange={handleSearch}
+                        class="search-input">
+                    </lightning-input>
                 </div>
                 
                 <div class="control-buttons">
@@ -69,7 +67,6 @@
                 <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
                     <thead>
                         <tr class="slds-line-height_reset">
-                           
                             <template for:each={columns} for:item="column">
                                 <th key={column.fieldName} class="slds-text-title_caps sortable-header" scope="col">
                                     <div class="header-content" data-field={column.fieldName} onclick={handleSort}>
@@ -87,7 +84,6 @@
                     <tbody>
                         <template for:each={filteredRecords} for:item="record">
                             <tr key={record.key} class="data-row" data-id={record.Id} onclick={handleRowClick}>
-                                
                                 <template for:each={record.cells} for:item="cell">
                                     <td key={cell.fieldName} class="data-cell">
                                         <div class="slds-truncate cell-content">
@@ -144,8 +140,8 @@
                                 </div>
                             </template>
 
-                            <!-- Expanded fields section -->
-                            <template if:true={record.hiddenFields.length}>
+                            <!-- CHANGE 4: Only show expanded fields section if isExpandable is true -->
+                            <template if:true={record.showExpandButton}>
                                 <div class="expanded-fields-container">
                                     <template for:each={record.hiddenFields} for:item="field">
                                         <div key={field.fieldName} class="mobile-field-row expanded-field"
@@ -166,6 +162,7 @@
                                     </template>
                                 </div>
 
+                                <!-- CHANGE 5: Show expand button only when configured -->
                                 <button class="expand-button" data-id={record.Id} onclick={handleCardExpand}>
                                     <template if:true={record.isExpanded}>
                                         Show Less
@@ -175,7 +172,6 @@
                                     </template>
                                 </button>
                             </template>
-
                         </div>
                     </div>
                 </template>

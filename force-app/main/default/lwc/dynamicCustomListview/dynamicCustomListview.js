@@ -145,8 +145,15 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
             record.allFields = record.cells.slice(1);
         }
 
-        record.visibleFields = (record.allFields || []).slice(0, 2);
-        record.hiddenFields = (record.allFields || []).slice(2);
+        // CHANGE 1: Use visibleMobileFields from config instead of hardcoded value
+        const visibleFieldsCount = this.config.visibleMobileFields || 2; // Default to 2 if not configured
+        record.visibleFields = (record.allFields || []).slice(0, visibleFieldsCount);
+        record.hiddenFields = (record.allFields || []).slice(visibleFieldsCount);
+
+        // CHANGE 2: Add expandable configuration check
+        record.isExpandable = this.config.isExpandable || false;
+        record.hasHiddenFields = record.hiddenFields.length > 0;
+        record.showExpandButton = record.isExpandable && record.hasHiddenFields;
 
         const subtitleField = record.cells.find(cell =>
             cell.fieldName.toLowerCase().includes('id') ||
@@ -204,18 +211,17 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
     }
 
     handleSearch(event) {
-    event.preventDefault();
-    event.stopPropagation();
+        event.preventDefault();
+        event.stopPropagation();
 
-    const newSearchTerm = event.target.value.toLowerCase();
+        const newSearchTerm = event.target.value.toLowerCase();
 
-    // Only update if changed to avoid unnecessary re-renders
-    if (this.searchTerm !== newSearchTerm) {
-        this.searchTerm = newSearchTerm;
-        this.filterRecords();
+        // Only update if changed to avoid unnecessary re-renders
+        if (this.searchTerm !== newSearchTerm) {
+            this.searchTerm = newSearchTerm;
+            this.filterRecords();
+        }
     }
-}
-
 
     filterRecords() {
         if (!this.searchTerm) {
@@ -422,6 +428,12 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
     handleCardExpand(event) {
         event.stopPropagation();
         const recordId = event.currentTarget.dataset.id;
+        
+        // CHANGE 3: Only handle expansion if isExpandable is true
+        if (!this.config.isExpandable) {
+            return;
+        }
+        
         if (this.expandedCardIds.has(recordId)) {
             this.expandedCardIds.delete(recordId);
         } else {
