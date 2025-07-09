@@ -1,10 +1,11 @@
 import { LightningElement, wire, track } from 'lwc';
 import { refreshApex } from '@salesforce/apex';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { NavigationMixin } from 'lightning/navigation';
 import getRecords from '@salesforce/apex/RecordDisplayController.getRecords';
 import getConfig from '@salesforce/apex/RecordDisplayController.getConfig';
 
-export default class RecordListView extends LightningElement {
+export default class RecordListView extends NavigationMixin(LightningElement) {
     @track records = [];
     @track filteredRecords = [];
     @track columns = [];
@@ -16,6 +17,11 @@ export default class RecordListView extends LightningElement {
     @track totalRecords = 0;
     @track config = {};
     @track listTitle = 'Records';
+    @track pageSize = 5;
+    @track currentPage = 0;
+    @track displayedRecords = [];
+    @track hasMoreRecords = false;
+    @track expandedCards = new Set();
 
     configName = 'RecordToDisplay';
 
@@ -64,6 +70,7 @@ export default class RecordListView extends LightningElement {
                             const fieldValue = this.getFieldValue(record, column.fieldName);
                             mappedRecord.cells.push({
                                 fieldName: column.fieldName,
+                                label: column.label,
                                 value: fieldValue,
                                 isLink: column.isLink,
                                 displayValue: this.formatDisplayValue(fieldValue, column)
@@ -71,12 +78,15 @@ export default class RecordListView extends LightningElement {
                         });
                     }
 
+                    this.setupMobileFields(mappedRecord);
+
                     return mappedRecord;
                 });
 
                 this.filteredRecords = [...this.records];
                 this.totalRecords = this.records.length;
                 this.applySorting();
+                this.updateDisplayedRecords();
                 this.error = undefined;
             } catch (e) {
                 this.error = 'Error processing records: ' + e.message;
@@ -116,6 +126,35 @@ export default class RecordListView extends LightningElement {
         }
     }
 
+    setupMobileFields(record) {
+        if (!record.cells || record.cells.length === 0) return;
+
+        const primaryFieldIndex = record.cells.findIndex(cell =>
+            cell.fieldName.toLowerCase().includes('name') ||
+            cell.fieldName.toLowerCase().includes('title') ||
+            cell.fieldName.toLowerCase().includes('subject')
+        );
+
+        if (primaryFieldIndex >= 0) {
+            record.primaryField = record.cells[primaryFieldIndex];
+            record.allFields = record.cells.filter((cell, index) => index !== primaryFieldIndex);
+        } else {
+            record.primaryField = record.cells[0];
+            record.allFields = record.cells.slice(1);
+        }
+
+        record.visibleFields = (record.allFields || []).slice(0, 2);
+        record.hiddenFields = (record.allFields || []).slice(2);
+
+        const subtitleField = record.cells.find(cell =>
+            cell.fieldName.toLowerCase().includes('id') ||
+            cell.fieldName.toLowerCase().includes('number')
+        );
+        if (subtitleField) {
+            record.subtitle = subtitleField.displayValue;
+        }
+    }
+
     getFieldValue(record, fieldName) {
         if (!record || !fieldName) return '';
 
@@ -132,7 +171,6 @@ export default class RecordListView extends LightningElement {
 
             return record[fieldName] != null ? String(record[fieldName]) : '';
         } catch (error) {
-            console.error('Error getting field value:', error);
             return '';
         }
     }
@@ -142,21 +180,14 @@ export default class RecordListView extends LightningElement {
 
         try {
             switch (column.type) {
-                case 'currency':
-                    return this.formatCurrency(value);
-                case 'date':
-                    return this.formatDate(value);
-                case 'datetime':
-                    return this.formatDateTime(value);
-                case 'percent':
-                    return this.formatPercent(value);
-                case 'phone':
-                    return this.formatPhone(value);
-                default:
-                    return value;
+                case 'currency': return this.formatCurrency(value);
+                case 'date': return this.formatDate(value);
+                case 'datetime': return this.formatDateTime(value);
+                case 'percent': return this.formatPercent(value);
+                case 'phone': return this.formatPhone(value);
+                default: return value;
             }
         } catch (error) {
-            console.error('Error formatting display value:', error);
             return value;
         }
     }
@@ -187,6 +218,8 @@ export default class RecordListView extends LightningElement {
             });
         }
         this.totalRecords = this.filteredRecords.length;
+        this.currentPage = 0;
+        this.updateDisplayedRecords();
     }
 
     handleSort(event) {
@@ -224,6 +257,9 @@ export default class RecordListView extends LightningElement {
             if (aVal > bVal) return this.sortDirection === 'asc' ? 1 : -1;
             return 0;
         });
+
+        this.currentPage = 0;
+        this.updateDisplayedRecords();
     }
 
     applySorting() {
@@ -249,64 +285,39 @@ export default class RecordListView extends LightningElement {
     }
 
     handleRowClick(event) {
-    const recordId = event.currentTarget.dataset.id;
-    const objectName = this.config.objectApiName;
-
-    // Navigate to custom Experience Cloud record page
-    const url = `frmportal/s/recorddetailpage?id=${recordId}`;
-
-    window.open(url, '_self'); // Open in same tab
-}
-
+        const recordId = event.currentTarget.dataset.id;
+        this[NavigationMixin.Navigate]({
+            type: 'standard__webPage',
+            attributes: {
+                url: `/frmportal/s/recorddetailpage?recordId=${recordId}`
+            }
+        });
+    }
 
     handleRefresh() {
-        try {
-            this.isLoading = true;
-            const refreshPromises = [];
+        this.isLoading = true;
+        const refreshPromises = [];
 
-            if (this.wiredConfigResult) {
-                refreshPromises.push(refreshApex(this.wiredConfigResult));
-            }
+        if (this.wiredConfigResult) refreshPromises.push(refreshApex(this.wiredConfigResult));
+        if (this.wiredRecordsResult) refreshPromises.push(refreshApex(this.wiredRecordsResult));
 
-            if (this.wiredRecordsResult) {
-                refreshPromises.push(refreshApex(this.wiredRecordsResult));
-            }
-
-            Promise.all(refreshPromises)
-                .then(() => {
-                    this.showToast('Success', 'Records refreshed successfully', 'success');
-                })
-                .catch(error => {
-                    console.error('Error refreshing data:', error);
-                    this.error = 'Error refreshing data: ' + (error.body?.message || error.message);
-                    this.showToast('Error', 'Failed to refresh records', 'error');
-                })
-                .finally(() => {
-                    this.isLoading = false;
-                });
-        } catch (error) {
-            console.error('Error in handleRefresh:', error);
-            this.error = 'Error refreshing data: ' + error.message;
-            this.showToast('Error', 'Failed to refresh records', 'error');
-            this.isLoading = false;
-        }
+        Promise.all(refreshPromises)
+            .then(() => this.showToast('Success', 'Records refreshed successfully', 'success'))
+            .catch(error => {
+                this.error = 'Error refreshing data: ' + (error.body?.message || error.message);
+                this.showToast('Error', 'Failed to refresh records', 'error');
+            })
+            .finally(() => this.isLoading = false);
     }
 
     showToast(title, message, variant) {
-        const evt = new ShowToastEvent({
-            title: title,
-            message: message,
-            variant: variant
-        });
+        const evt = new ShowToastEvent({ title, message, variant });
         this.dispatchEvent(evt);
     }
 
     formatCurrency(value) {
         try {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-            }).format(value);
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
         } catch (error) {
             return value;
         }
@@ -353,21 +364,48 @@ export default class RecordListView extends LightningElement {
     }
 
     get sortInfoText() {
-        if (this.sortField) {
-            return `Sorted by ${this.formatLabel(this.sortField)}`;
-        }
+        if (this.sortField) return `Sorted by ${this.formatLabel(this.sortField)}`;
         return this.config.sortBy ? `Sorted by ${this.config.sortBy}` : 'Sorted by Name';
     }
 
     get filterInfoText() {
         let filterText = `Filtered by All ${this.config.objectApiName}s`;
-        if (this.config.recordType) {
-            filterText += ` - ${this.config.recordType} Record Type`;
-        }
+        if (this.config.recordType) filterText += ` - ${this.config.recordType} Record Type`;
         return filterText;
     }
 
     get updateInfoText() {
         return 'Updated a few seconds ago';
+    }
+
+    updateDisplayedRecords() {
+        const startIndex = 0;
+        const endIndex = (this.currentPage + 1) * this.pageSize;
+        this.displayedRecords = this.filteredRecords.slice(startIndex, endIndex);
+        this.hasMoreRecords = this.filteredRecords.length > endIndex;
+    }
+
+    handleLoadMore() {
+        this.currentPage++;
+        this.updateDisplayedRecords();
+    }
+
+    handleCardExpand(event) {
+        event.stopPropagation();
+        const recordId = event.currentTarget.dataset.id;
+        if (this.expandedCards.has(recordId)) {
+            this.expandedCards.delete(recordId);
+        } else {
+            this.expandedCards.add(recordId);
+        }
+        this.expandedCards = new Set(this.expandedCards);
+    }
+
+    get isCardExpanded() {
+        return (recordId) => this.expandedCards.has(recordId);
+    }
+
+    isCardExpanded(recordId) {
+        return this.expandedCards.has(recordId);
     }
 }
