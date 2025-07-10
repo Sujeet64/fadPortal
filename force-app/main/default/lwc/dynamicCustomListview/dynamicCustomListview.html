@@ -2,7 +2,7 @@
   @description       : 
   @author            : ChangeMeIn@UserSettingsUnder.SFDoc
   @group             : 
-  @last modified on  : 07-09-2025
+  @last modified on  : 07-10-2025
   @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
 -->
 <template>
@@ -71,11 +71,13 @@
                                 <th key={column.fieldName} class="slds-text-title_caps sortable-header" scope="col">
                                     <div class="header-content" data-field={column.fieldName} onclick={handleSort}>
                                         <span class="slds-truncate">{column.label}</span>
-                                        <lightning-icon 
-                                            icon-name="utility:arrowdown" 
-                                            size="xx-small" 
-                                            class="sort-icon">
-                                        </lightning-icon>
+    <template if:true={column.sortable}>
+    <lightning-icon 
+        icon-name={column.sortIcon} 
+        size="xx-small" 
+        class="sort-icon">
+    </lightning-icon>
+</template>
                                     </div>
                                 </th>
                             </template>
@@ -105,9 +107,9 @@
             </div>
 
             <!-- Mobile Card View -->
-            <div class="mobile-card-container">
-                <template for:each={displayedRecords} for:item="record">
-                    <div key={record.key} class="mobile-card" data-id={record.Id}>
+<div class="mobile-card-container" data-loading-type={loadingType} onscroll={handleScroll}>
+    <template for:each={displayedRecords} for:item="record">
+        <div key={record.key} class="mobile-card" data-id={record.Id}>
                         <div class="mobile-card-header">
                             <template if:true={record.primaryField}>
                                 <template if:false={record.primaryField.isLink}>
@@ -176,14 +178,29 @@
                     </div>
                 </template>
 
-                <template if:true={hasMoreRecords}>
-                    <div class="load-more-container">
-                        <button class="load-more-button" onclick={handleLoadMore}>
-                            Load More
-                        </button>
-                    </div>
+                <!-- Replace the existing load more section with: -->
+    <template if:true={showLoadMoreButton}>
+        <div class="load-more-container">
+            <button class="load-more-button" onclick={handleLoadMore} disabled={isLoading}>
+                <template if:true={isLoading}>
+                    <lightning-spinner alternative-text="Loading..." size="small"></lightning-spinner>
+                    Loading...
                 </template>
+                <template if:false={isLoading}>Load More</template>
+            </button>
+        </div>
+    </template>
+
+    <!-- Infinite Scroll Loading Indicator - Only show for 'infiniteScroll' type -->
+    <template if:true={showInfiniteScroll}>
+        <template if:true={isLoading}>
+            <div class="infinite-scroll-loading">
+                <lightning-spinner alternative-text="Loading more records..." size="small"></lightning-spinner>
+                <span class="loading-text">Loading more records...</span>
             </div>
+        </template>
+    </template>
+</div>
 
             <template if:false={filteredRecords.length}>
                 <div class="no-records-message">
