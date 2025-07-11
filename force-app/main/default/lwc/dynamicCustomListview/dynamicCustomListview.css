@@ -64,18 +64,29 @@
     width: 300px;
 }
 
-.search-input input {
+/* ZOOM PREVENTION: Apply to ALL search inputs across all screen sizes */
+.search-input input,
+.search-input lightning-input input,
+lightning-input[type="search"] input,
+input[type="search"] {
     border: 1px solid #c9c9c9;
     border-radius: 0.25rem;
     padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: 16px !important; /* CRITICAL: Prevents zoom on iOS/mobile devices */
     background: #ffffff;
+    -webkit-appearance: none; /* Remove default iOS styling */
+    -moz-appearance: none; /* Remove default Firefox styling */
+    appearance: none; /* Remove default styling */
 }
 
-.search-input input:focus {
+.search-input input:focus,
+.search-input lightning-input input:focus,
+lightning-input[type="search"] input:focus,
+input[type="search"]:focus {
     border-color: #1589ee;
     box-shadow: 0 0 0 1px #1589ee;
     outline: none;
+    font-size: 16px !important; /* Maintain font size on focus */
 }
 
 .control-buttons {
@@ -147,8 +158,9 @@
 }
 
 .table-container[data-loading-type="infiniteScroll"] {
-max-height: none;
-    height: auto;}
+    max-height: none;
+    height: auto;
+}
 
 .table-container[data-loading-type="loadMore"] {
     max-height: none;
@@ -291,6 +303,7 @@ max-height: none;
     bottom: 0;
     z-index: 1;
 }
+
 .desktop-infinite-scroll-loading .loading-text {
     font-size: 0.9rem;
     color: #706e6b;
@@ -551,6 +564,38 @@ max-height: none;
     color: #706e6b;
 }
 
+/* UNIVERSAL ZOOM PREVENTION - Applied to all screen sizes */
+/* Target all possible search input variations */
+.search-input input,
+.search-input lightning-input input,
+lightning-input[type="search"] input,
+input[type="search"],
+input[type="text"],
+input[placeholder*="search" i],
+input[placeholder*="Search" i] {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* Additional zoom prevention for focus states */
+.search-input input:focus,
+.search-input lightning-input input:focus,
+lightning-input[type="search"] input:focus,
+input[type="search"]:focus,
+input[type="text"]:focus,
+input[placeholder*="search" i]:focus,
+input[placeholder*="Search" i]:focus {
+    font-size: 16px !important;
+    zoom: 1;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .list-header {
@@ -569,6 +614,14 @@ max-height: none;
     
     .search-input {
         width: 100%;
+    }
+    
+    /* ZOOM PREVENTION: Ensure 16px font size on mobile */
+    .search-input input,
+    .search-input lightning-input input,
+    lightning-input[type="search"] input,
+    input[type="search"] {
+        font-size: 16px !important;
     }
     
     .slds-table th,
@@ -598,6 +651,14 @@ max-height: none;
     .mobile-card-title {
         font-size: 1rem;
     }
+    
+    /* ZOOM PREVENTION: Maintain 16px font size on small mobile */
+    .search-input input,
+    .search-input lightning-input input,
+    lightning-input[type="search"] input,
+    input[type="search"] {
+        font-size: 16px !important;
+    }
 }
 
 @media (max-width: 1024px) {
@@ -621,8 +682,12 @@ max-height: none;
         width: 100%;
     }
     
-    .search-input input {
-        font-size: 16px; /* Prevents zoom on iOS */
+    /* ZOOM PREVENTION: Critical for tablets and mobile */
+    .search-input input,
+    .search-input lightning-input input,
+    lightning-input[type="search"] input,
+    input[type="search"] {
+        font-size: 16px !important; /* Prevents zoom on iOS/mobile devices */
     }
     
     .status-info {
@@ -638,7 +703,6 @@ max-height: none;
     .mobile-card-container {
         display: flex;
     }
-
     
     .list-title {
         font-size: 1rem;
@@ -652,6 +716,12 @@ max-height: none;
 @media (max-width: 768px) {
     .mobile-card-container[data-loading-type="infiniteScroll"] {
         max-height: 60vh;
+    }
+    
+    .mobile-card-container[data-loading-type="infiniteScroll"] {
+        /* Remove max-height restriction for mobile infinite scroll */
+        max-height: none;
+        height: auto;
     }
 }
 
@@ -696,6 +766,14 @@ max-height: none;
         padding: 0.875rem 2.5rem;
         font-size: 0.9rem;
     }
+    
+    /* ZOOM PREVENTION: Maintain 16px font size on tablets */
+    .search-input input,
+    .search-input lightning-input input,
+    lightning-input[type="search"] input,
+    input[type="search"] {
+        font-size: 16px !important;
+    }
 }
 
 /* Ensure table is visible on desktop */
@@ -707,16 +785,15 @@ max-height: none;
     .mobile-card-container {
         display: none;
     }
-}
-
-@media (max-width: 768px) {
-    .mobile-card-container[data-loading-type="infiniteScroll"] {
-        /* Remove max-height restriction for mobile infinite scroll */
-        max-height: none;
-        height: auto;
+    
+    /* ZOOM PREVENTION: Even on desktop, maintain consistency */
+    .search-input input,
+    .search-input lightning-input input,
+    lightning-input[type="search"] input,
+    input[type="search"] {
+        font-size: 16px !important;
     }
 }
-
 
 /* Utility Classes */
 .slds-truncate {
@@ -731,4 +808,35 @@ max-height: none;
 
 .slds-line-height_reset {
     line-height: 1;
+}
+
+/* ADDITIONAL ZOOM PREVENTION LAYER */
+/* Target Lightning Web Component shadow DOM elements */
+:host {
+    --lwc-fontSize: 16px;
+}
+
+/* Prevent zoom on any input within the component */
+* input[type="search"],
+* input[type="text"] {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100% !important;
+    -moz-text-size-adjust: 100% !important;
+    -ms-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
+}
+
+/* Force font size on Lightning components */
+lightning-input,
+lightning-input input,
+.slds-input {
+    font-size: 16px !important;
+}
+
+/* Specific targeting for search inputs */
+[data-id="search-input"] input,
+[data-id="search-input"] lightning-input input,
+.search-input [part="input"],
+.search-input lightning-input [part="input"] {
+    font-size: 16px !important;
 }
