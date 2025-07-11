@@ -3,81 +3,79 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { NavigationMixin } from 'lightning/navigation';
 import getRecords from '@salesforce/apex/RecordDisplayController.getRecords';
 import getConfig from '@salesforce/apex/RecordDisplayController.getConfig';
+import cleanupQueryLocatorCache from '@salesforce/apex/RecordDisplayController.cleanupQueryLocatorCache';
 
 export default class RecordListView extends NavigationMixin(LightningElement) {
     @track records = [];
     @track columns = [];
     @track error;
     @track isLoading = false;
+    @track isLoadingMore = false; // Separate loading state for infinite scroll
     @track searchTerm = '';
     @track sortField = '';
     @track sortDirection = 'asc';
-    @track totalRecords = 0;
     @track config = {};
     @track listTitle = 'Records';
     @track displayedRecords = [];
-    @track hasMoreRecords = false;
     @track lastUpdateTime;
+    @track queryLocatorId;
 
-    // Pagination properties
-    pageSize = 10;
+    pageSize = 20;
     currentOffset = 0;
-    loadingType = 'loadMore'; // 'loadMore' or 'infiniteScroll'
-
-    // Search debouncing
-    searchTimeout;
-
+    hasMoreRecords = true;
+    loadingType = 'infiniteScroll';
     expandedCardIds = new Set();
     configName = 'RecordToDisplay';
+    scrollThreshold = 100;
+    isScrollLoading = false; // Prevent multiple simultaneous scroll loads
+
+    // Store scroll position
+    scrollPosition = 0;
+    containerHeight = 0;
 
     connectedCallback() {
         this.loadConfig();
     }
 
     renderedCallback() {
-        // Fix search input focus issue
-        const searchInput = this.template.querySelector('lightning-input');
-        if (searchInput) {
-            searchInput.focus();
-            searchInput.blur();
-        }
-
-        // ADD: Attach scroll event listeners for infinite scroll
-        if (this.loadingType === 'infiniteScroll') {
-            this.attachScrollListeners();
-        }
+        this.attachScrollListeners();
     }
 
     disconnectedCallback() {
-        // Remove scroll event listeners
         this.removeScrollListeners();
+        if (this.queryLocatorId) {
+            cleanupQueryLocatorCache()
+                .catch(error => {
+                    console.warn('Could not cleanup QueryLocator cache:', error);
+                });
+        }
     }
 
-    // ADD: Method to attach scroll listeners to both desktop and mobile containers
     attachScrollListeners() {
-        // Desktop table container
         const tableContainer = this.template.querySelector('.table-container');
-        if (tableContainer) {
+        if (tableContainer && !tableContainer.hasScrollListener) {
             tableContainer.addEventListener('scroll', this.handleScroll.bind(this));
+            tableContainer.hasScrollListener = true;
         }
 
-        // Mobile card container
         const mobileContainer = this.template.querySelector('.mobile-card-container');
-        if (mobileContainer) {
+        if (mobileContainer && !mobileContainer.hasScrollListener) {
             mobileContainer.addEventListener('scroll', this.handleScroll.bind(this));
+            mobileContainer.hasScrollListener = true;
         }
     }
 
-    // ADD: Method to remove scroll listeners
     removeScrollListeners() {
         const tableContainer = this.template.querySelector('.table-container');
         if (tableContainer) {
             tableContainer.removeEventListener('scroll', this.handleScroll.bind(this));
+            tableContainer.hasScrollListener = false;
         }
 
         const mobileContainer = this.template.querySelector('.mobile-card-container');
         if (mobileContainer) {
             mobileContainer.removeEventListener('scroll', this.handleScroll.bind(this));
+            mobileContainer.hasScrollListener = false;
         }
     }
 
@@ -87,10 +85,10 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
             this.listTitle = this.config.recordType ?
                 `${this.config.recordType} ${this.config.objectApiName}s` :
                 `${this.config.objectApiName}s`;
-            this.pageSize = this.config.pageSize || 10;
-            this.loadingType = this.config.loadingType || 'loadMore';
+            this.pageSize = this.config.pageSize || 20;
+            this.loadingType = 'infiniteScroll';
             this.setupColumns();
-            this.loadRecords(true); // true = reset
+            this.loadRecords(true);
         } catch (error) {
             this.error = error.body?.message || 'Error loading configuration';
             this.config = {};
@@ -100,15 +98,24 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
     }
 
     async loadRecords(reset = false) {
-        try {
-            this.isLoading = true;
-            this.error = undefined;
+        if (!this.hasMoreRecords && !reset) return;
+        if (this.isScrollLoading && !reset) return; // Prevent multiple simultaneous loads
 
+        try {
             if (reset) {
+                this.isLoading = true;
                 this.currentOffset = 0;
                 this.records = [];
                 this.displayedRecords = [];
+                this.queryLocatorId = null;
+                this.hasMoreRecords = true;
+                this.isScrollLoading = false;
+            } else {
+                this.isLoadingMore = true;
+                this.isScrollLoading = true;
             }
+
+            this.error = undefined;
 
             const sortBy = this.sortField ? `${this.sortField} ${this.sortDirection.toUpperCase()}` : this.config.sortBy;
             const result = await getRecords({
@@ -116,8 +123,11 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
                 pageSize: this.pageSize,
                 offset: this.currentOffset,
                 searchTerm: this.searchTerm,
-                sortBy: sortBy
+                sortBy: sortBy,
+                queryLocatorId: this.queryLocatorId
             });
+
+            this.queryLocatorId = result.queryLocatorId;
 
             const mappedRecords = result.records.map((record, index) => {
                 const mappedRecord = {
@@ -151,6 +161,7 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
                     isExpanded: this.expandedCardIds.has(record.Id)
                 }));
             } else {
+                // Append new records without triggering full re-render
                 this.records = [...this.records, ...mappedRecords];
                 this.displayedRecords = [...this.displayedRecords, ...mappedRecords.map(record => ({
                     ...record,
@@ -158,17 +169,21 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
                 }))];
             }
 
-            this.totalRecords = result.totalCount;
             this.hasMoreRecords = result.hasMore;
-            this.currentOffset = result.currentOffset + result.records.length;
+            this.currentOffset += result.records.length;
             this.lastUpdateTime = new Date();
 
         } catch (error) {
             this.error = error.body?.message || 'Error fetching records';
-            this.records = [];
-            this.displayedRecords = [];
+            if (reset) {
+                this.records = [];
+                this.displayedRecords = [];
+            }
+            this.hasMoreRecords = false;
         } finally {
             this.isLoading = false;
+            this.isLoadingMore = false;
+            this.isScrollLoading = false;
         }
     }
 
@@ -235,18 +250,18 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
     handleSearch(event) {
         const newSearchTerm = event.target.value;
         
-        // Clear existing timeout
         if (this.searchTimeout) {
             clearTimeout(this.searchTimeout);
         }
 
-        // Set new timeout for debounced search
         this.searchTimeout = setTimeout(() => {
             if (this.searchTerm !== newSearchTerm) {
                 this.searchTerm = newSearchTerm;
-                this.loadRecords(true); // Reset and load with new search
+                this.queryLocatorId = null;
+                this.expandedCardIds.clear();
+                this.loadRecords(true);
             }
-        }, 500); // 500ms delay
+        }, 500);
     }
 
     handleSort(event) {
@@ -264,17 +279,15 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
                 ? (this.sortDirection === 'asc' ? 'utility:arrowup' : 'utility:arrowdown')
                 : 'utility:arrowdown'
         }));
-        this.loadRecords(true); // Reset and load with new sort
-    }
-
-    handleLoadMore() {
-        if (this.hasMoreRecords && !this.isLoading) {
-            this.loadRecords(false); // false = append to existing records
-        }
+        
+        this.queryLocatorId = null;
+        this.expandedCardIds.clear();
+        this.loadRecords(true);
     }
 
     handleRefresh() {
         this.expandedCardIds.clear();
+        this.queryLocatorId = null;
         this.loadRecords(true);
         this.showToast('Success', 'Records refreshed successfully', 'success');
     }
@@ -303,31 +316,28 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
             this.expandedCardIds.add(recordId);
         }
         
-        // Update displayed records with new expansion state
         this.displayedRecords = this.displayedRecords.map(record => ({
             ...record,
             isExpanded: this.expandedCardIds.has(record.Id)
         }));
     }
 
-    // UPDATED: Infinite scroll handling for both desktop and mobile
     handleScroll(event) {
-        if (this.loadingType !== 'infiniteScroll') return;
-        
+        if (!this.hasMoreRecords || this.isScrollLoading || this.isLoadingMore) {
+            return;
+        }
+
         const target = event.target;
-        const threshold = 100; // pixels from bottom
         const scrollTop = target.scrollTop;
         const scrollHeight = target.scrollHeight;
         const clientHeight = target.clientHeight;
         
-        if (scrollTop + clientHeight >= scrollHeight - threshold) {
-            if (this.hasMoreRecords && !this.isLoading) {
-                this.loadRecords(false);
-            }
+        // Check if we're near the bottom
+        if (scrollTop + clientHeight >= scrollHeight - this.scrollThreshold) {
+            this.loadRecords(false);
         }
     }
 
-    // Utility methods (keeping existing ones)
     getFieldValue(record, fieldName) {
         if (!record || !fieldName) return '';
 
@@ -429,9 +439,14 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
         }
     }
 
-    // Getters
     get itemsDisplayText() {
-        return `${this.displayedRecords.length} of ${this.totalRecords} items`;
+        const totalShown = this.displayedRecords.length;
+        const totalAvailable = this.config.totalCount || totalShown;
+        
+        if (this.hasMoreRecords) {
+            return `${totalShown}+ items`;
+        }
+        return `${totalShown} items`;
     }
 
     get sortInfoText() {
@@ -462,21 +477,12 @@ export default class RecordListView extends NavigationMixin(LightningElement) {
         }
     }
 
-    get showLoadMoreButton() {
-        return this.loadingType === 'loadMore' && this.hasMoreRecords && !this.isLoading;
-    }
-
-    get showInfiniteScroll() {
-        return this.loadingType === 'infiniteScroll';
-    }
-
-    // Computed property for filtered records (now using all loaded records)
     get filteredRecords() {
         return this.displayedRecords;
     }
 
-    get getSortIcon() {
-        return 'utility:arrowdown';
+    get showInfiniteScrollLoader() {
+        return this.isLoadingMore && this.hasMoreRecords;
     }
 
     getSortIconForField(fieldName) {
